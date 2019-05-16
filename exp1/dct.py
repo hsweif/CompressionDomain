@@ -2,9 +2,12 @@ import cv2
 import numpy as np
 from scipy import fftpack
 from enum import Enum, unique
+import multiprocessing as mp
+from tqdm import tqdm
 
 img_dir = '../resource/'
 output_dir = img_dir+'output/'
+CORE_NUM = 4
 
 @unique
 class Policy(Enum):
@@ -27,26 +30,50 @@ def color2Gray(img):
     res = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     return res
 
-def one_dim_dct(img, order):
+def solve_1d_dct(img, order):
     shape = img.shape
     h, w = shape[0], shape[1]
-    if order == Order.row:
-        half_w = int(w/2)
-        res = np.zeros((h,half_w))
-        for u in range(0, h):
-            print(u)
-            img_slice = np.reshape(img[u,:], (w,1))
-            for v in range(0, half_w):
-                res[u,v] = F_1d(img_slice, v, w)
-    elif order == Order.col:
-        half_h = int(h/2)
-        res = np.zeros((half_h,w))
-        for v in range(0, w):
-            print(v)
-            img_slice = np.reshape(img[:,v], (h,1))
-            for u in range(0, half_h):
-                res[u,v] = F_1d(img_slice, u, h)
+    res = np.zeros(shape)
+    N = h if order == Order.row else w
+    # FIXME: 没有整除的情况需要特判
+    num_per_proc = int(N/CORE_NUM)
+    proc_list = []
+    manager = mp.Manager()
+    res_list = manager.list()
+    for i in range(0, CORE_NUM):
+        start = i*num_per_proc
+        end = (i+1)*num_per_proc
+        proc = mp.Process(target=cal_1d_dct, args=(res_list,img,order,start,end,))
+        proc.start()
+        proc_list.append(proc)
+    for proc in proc_list:
+        proc.join()
+    for start, end, proc_res in res_list:
+        if order == Order.row:
+           res[start:end,:] = proc_res
+        else:
+           res[:,start:end] = proc_res
     return res
+
+def cal_1d_dct(res_list, img, order, start, end):
+    shape = img.shape
+    res = np.zeros(shape)
+    h, w = shape[0], shape[1]
+    for i in range(start, end):
+        print(i)
+        if order == Order.row:
+            img_slice = np.reshape(img[i,:], (w,1))
+            for v in range(0, w):
+                res[i,v] = F_1d(img_slice, v, w)
+        elif order == Order.col:
+            img_slice = np.reshape(img[:,i], (h,1))
+            for u in range(0, h):
+                res[u,i] = F_1d(img_slice, u, h)
+    if order == Order.row:
+        res_list.append((start,end,res[start:end,:]))
+    else:
+        res_list.append((start,end,res[:,start:end]))
+
 
 def two_dim_dct(img):
     shape = img.shape
@@ -116,9 +143,9 @@ def baseline(img, func_type):
 
 if __name__ == '__main__':
     img = open_image('lena.bmp')
-    res_1d = one_dim_dct(img, Order.row)
+    res_1d = solve_1d_dct(img, Order.row)
     cv2.imwrite(output_dir+'1d_out_1.bmp', res_1d)
-    res_1d = one_dim_dct(res_1d, Order.col)
+    res_1d = solve_1d_dct(res_1d, Order.col)
     cv2.imwrite(output_dir+'1d_out.bmp', res_1d)
     # res_2d = two_dim_dct(img)
     # cv2.imwrite(output_dir+'2d_out.bmp', res_2d)
