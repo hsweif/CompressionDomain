@@ -131,7 +131,7 @@ def f_2d(img, block_sz):
     A = np.zeros((block_sz, block_sz))
     for i in range(0, block_sz):
         for j in range(0, block_sz):
-            A[i,j] = c_2d(i,j)*np.cos((2*i+1)*np.pi*j/(2*block_sz))
+            A[i,j] = c_1d(j)*np.cos((2*i+1)*np.pi*j/(2*block_sz))
     res = (2/block_sz)*np.dot(np.dot(A,img),np.transpose(A))
     return res
 
