@@ -75,14 +75,22 @@ def cal_1d_dct(res_list, img, order, start, end):
         res_list.append((start,end,res[:,start:end]))
 
 
-def two_dim_dct(img):
+def two_dim_dct(img, block_sz=8):
     shape = img.shape
     h, w = shape[0], shape[1]
+    assert(h == w)
     res = np.zeros(shape)
-    for u in range(0, h):
-        print(u)
-        for v in range(0, w):
-            res[u,v] = F_2d(img, u, v, 8)
+    block_res = np.zeros((block_sz, block_sz))
+    n = int(h/block_sz)
+    for ni in range(0, n):
+        print(f'Iter: {ni}')
+        for nj in range(0, n):
+            base_img = img[ni*block_sz:(ni+1)*block_sz, nj*block_sz:(nj+1)*block_sz]
+            # for u in range(0, block_sz):
+            #     for v in range(0, block_sz):
+            #         block_res[u, v] = F_2d(base_img, u, v, block_sz)
+            block_res = F_2d(base_img, block_sz)
+            res[ni*block_sz:(ni+1)*block_sz, nj*block_sz:(nj+1)*block_sz] = block_res
     return res
 
 def one_dim_idct(dct_res):
@@ -109,12 +117,22 @@ def F_1d(img, u, N):
     res = np.sqrt(2/N)*c_1d(u)*z
     return res
 
-def F_2d(img, u, v, block_sz=8):
-    res = 0
+def F_2d(img, block_sz=8):
+    A = np.zeros((block_sz, block_sz))
     for i in range(0, block_sz):
         for j in range(0, block_sz):
-            res += img_2d(img,i,j)*np.cos((2*i+1)*u*np.pi/16)*np.cos((2*j+1)*v*np.pi/16)
-    res = (1/4)*c_2d(u,v)*res
+            A[i,j] = np.cos((2*j+1)*np.pi*i/(2*block_sz))
+    res = np.dot(np.dot(A,img),np.transpose(A))/4
+    res[0,0] = res[0,0] * c_2d(0,0)
+    # A = np.zeros((1,block_sz))
+    # for i in range(0, block_sz):
+    #     A[0,i] = np.cos((2*i+1)*np.pi*u/(2*block_sz))
+    # res = c_2d(u,v)*np.dot(np.dot(A,img),np.transpose(A))/4
+    # res = 0
+    # for i in range(0, block_sz):
+    #     for j in range(0, block_sz):
+    #         res += img[i,j]*np.cos((2*i+1)*np.pi*u/(2*block_sz))*np.cos((2*j+1)*np.pi*v/(2*block_sz))
+    # res = res*c_2d(u,v)/4
     return res
 
 def f_1d(dct_res, u, N):
@@ -143,9 +161,11 @@ def baseline(img, func_type):
 
 if __name__ == '__main__':
     img = open_image('lena.bmp')
-    res_1d = solve_1d_dct(img, Order.row)
-    cv2.imwrite(output_dir+'1d_out_1.bmp', res_1d)
-    res_1d = solve_1d_dct(res_1d, Order.col)
-    cv2.imwrite(output_dir+'1d_out.bmp', res_1d)
-    # res_2d = two_dim_dct(img)
-    # cv2.imwrite(output_dir+'2d_out.bmp', res_2d)
+    # res_1d = solve_1d_dct(img, Order.row)
+    # cv2.imwrite(output_dir+'1d_out_1.bmp', res_1d)
+    # res_1d = solve_1d_dct(res_1d, Order.col)
+    # cv2.imwrite(output_dir+'1d_out.bmp', res_1d)
+    N = img.shape[0]
+    for sz in [N]:
+        res_2d = two_dim_dct(img,sz)
+        cv2.imwrite(output_dir+f'2d_out_{sz}.bmp', res_2d)
