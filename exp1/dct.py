@@ -13,6 +13,7 @@ CORE_NUM = 4
 class Policy(Enum):
     dct_1d = 1
     dct_2d = 2
+    idct_2d = 3
 
 @unique
 class Order(Enum):
@@ -60,7 +61,7 @@ def cal_1d_dct(res_list, img, order, start, end):
     res = np.zeros(shape)
     h, w = shape[0], shape[1]
     for i in range(start, end):
-        print(i)
+        print(f'Iter: {i}')
         if order == Order.row:
             img_slice = np.reshape(img[i,:], (w,1))
             for v in range(0, w):
@@ -74,22 +75,21 @@ def cal_1d_dct(res_list, img, order, start, end):
     else:
         res_list.append((start,end,res[:,start:end]))
 
-
-def two_dim_dct(img, block_sz=8):
+def two_dim_transform(img, policy, block_sz=8):
     shape = img.shape
     h, w = shape[0], shape[1]
     assert(h == w)
     res = np.zeros(shape)
-    block_res = np.zeros((block_sz, block_sz))
     n = int(h/block_sz)
+    assert(n*block_sz == h)
     for ni in range(0, n):
         print(f'Iter: {ni}')
         for nj in range(0, n):
             base_img = img[ni*block_sz:(ni+1)*block_sz, nj*block_sz:(nj+1)*block_sz]
-            # for u in range(0, block_sz):
-            #     for v in range(0, block_sz):
-            #         block_res[u, v] = F_2d(base_img, u, v, block_sz)
-            block_res = F_2d(base_img, block_sz)
+            if(policy == Policy.dct_2d):
+                block_res = F_2d(base_img, block_sz)
+            elif(policy == Policy.idct_2d):
+                block_res = f_2d(base_img, block_sz)
             res[ni*block_sz:(ni+1)*block_sz, nj*block_sz:(nj+1)*block_sz] = block_res
     return res
 
@@ -100,7 +100,6 @@ def one_dim_idct(dct_res):
     print('1D IDCT')
     for u in range(0, N):
         pass
-
 
 def img_1d(img, u):
     return img[u]
@@ -117,22 +116,23 @@ def F_1d(img, u, N):
     res = np.sqrt(2/N)*c_1d(u)*z
     return res
 
-def F_2d(img, block_sz=8):
+def F_2d(img, block_sz):
     A = np.zeros((block_sz, block_sz))
     for i in range(0, block_sz):
         for j in range(0, block_sz):
             A[i,j] = np.cos((2*j+1)*np.pi*i/(2*block_sz))
-    res = np.dot(np.dot(A,img),np.transpose(A))/4
-    res[0,0] = res[0,0] * c_2d(0,0)
-    # A = np.zeros((1,block_sz))
-    # for i in range(0, block_sz):
-    #     A[0,i] = np.cos((2*i+1)*np.pi*u/(2*block_sz))
-    # res = c_2d(u,v)*np.dot(np.dot(A,img),np.transpose(A))/4
-    # res = 0
-    # for i in range(0, block_sz):
-    #     for j in range(0, block_sz):
-    #         res += img[i,j]*np.cos((2*i+1)*np.pi*u/(2*block_sz))*np.cos((2*j+1)*np.pi*v/(2*block_sz))
-    # res = res*c_2d(u,v)/4
+    res = (2/block_sz)*np.dot(np.dot(A,img),np.transpose(A))
+    for i in range(0, block_sz):
+        for j in range(0, block_sz):
+            res[i,j] = res[i,j] * c_2d(i,j)
+    return res
+
+def f_2d(img, block_sz):
+    A = np.zeros((block_sz, block_sz))
+    for i in range(0, block_sz):
+        for j in range(0, block_sz):
+            A[i,j] = c_2d(i,j)*np.cos((2*i+1)*np.pi*j/(2*block_sz))
+    res = (2/block_sz)*np.dot(np.dot(A,img),np.transpose(A))
     return res
 
 def f_1d(dct_res, u, N):
@@ -146,8 +146,11 @@ def c_1d(u):
     return 1 if u != 0 else np.sqrt(2)/2
 
 def c_2d(u,v):
-    return 1 if u != 0 or v != 0 else np.sqrt(2)/2
-
+    if u != 0 and v != 0:
+        return 1
+    if u == 0 and v == 0:
+        return 1/2
+    return np.sqrt(2)/2
 
 def baseline(img, func_type):
     shape = img.shape
@@ -161,11 +164,15 @@ def baseline(img, func_type):
 
 if __name__ == '__main__':
     img = open_image('lena.bmp')
+    cv2.imwrite(output_dir+'gray_lena.bmp',img)
+    # print('Solving 1D DCT. First row then column, solving in multiprocess')
     # res_1d = solve_1d_dct(img, Order.row)
-    # cv2.imwrite(output_dir+'1d_out_1.bmp', res_1d)
     # res_1d = solve_1d_dct(res_1d, Order.col)
     # cv2.imwrite(output_dir+'1d_out.bmp', res_1d)
+    print('Solving 2D DCT. First row then column')
     N = img.shape[0]
-    for sz in [N]:
-        res_2d = two_dim_dct(img,sz)
-        cv2.imwrite(output_dir+f'2d_out_{sz}.bmp', res_2d)
+    for sz in [8,N]:
+        dct_2d = two_dim_transform(img,Policy.dct_2d,sz)
+        idct_2d = two_dim_transform(dct_2d, Policy.idct_2d, sz)
+        cv2.imwrite(output_dir+f'2d_dct_{sz}.bmp', dct_2d)
+        cv2.imwrite(output_dir+f'2d_idct_{sz}.bmp', idct_2d)
