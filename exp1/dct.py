@@ -14,6 +14,7 @@ class Policy(Enum):
     dct_1d = 1
     dct_2d = 2
     idct_2d = 3
+    idct_1d = 4
 
 @unique
 class Order(Enum):
@@ -31,7 +32,7 @@ def color2Gray(img):
     res = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     return res
 
-def solve_1d_dct(img, order):
+def solve_1d_dct(img, order, policy=Policy.idct_1d):
     shape = img.shape
     h, w = shape[0], shape[1]
     res = np.zeros(shape)
@@ -44,7 +45,7 @@ def solve_1d_dct(img, order):
     for i in range(0, CORE_NUM):
         start = i*num_per_proc
         end = (i+1)*num_per_proc
-        proc = mp.Process(target=cal_1d_dct, args=(res_list,img,order,start,end,))
+        proc = mp.Process(target=cal_1d_dct, args=(res_list,policy,img,order,start,end,))
         proc.start()
         proc_list.append(proc)
     for proc in proc_list:
@@ -56,20 +57,25 @@ def solve_1d_dct(img, order):
            res[:,start:end] = proc_res
     return res
 
-def cal_1d_dct(res_list, img, order, start, end):
+def cal_1d_dct(res_list, policy, img, order, start, end):
     shape = img.shape
     res = np.zeros(shape)
     h, w = shape[0], shape[1]
     for i in range(start, end):
-        print(f'Iter: {i}')
         if order == Order.row:
             img_slice = np.reshape(img[i,:], (w,1))
             for v in range(0, w):
-                res[i,v] = F_1d(img_slice, v, w)
+                if policy == Policy.dct_1d:
+                    res[i,v] = F_1d(img_slice, v, w)
+                elif policy == Policy.idct_1d:
+                    res[i,v] = f_1d(img_slice, v, w)
         elif order == Order.col:
             img_slice = np.reshape(img[:,i], (h,1))
             for u in range(0, h):
-                res[u,i] = F_1d(img_slice, u, h)
+                if policy == Policy.dct_1d:
+                    res[u,i] = F_1d(img_slice, u, h)
+                elif policy == Policy.idct_1d:
+                    res[u,i] = f_1d(img_slice, u, h)
     if order == Order.row:
         res_list.append((start,end,res[start:end,:]))
     else:
@@ -111,7 +117,7 @@ def F_1d(img, u, N):
     z = 0
     pi_u = np.pi*u
     two_N = 1/(2*N)
-    for i in range(0, int(N/2)):
+    for i in range(0, N):
         z += img_1d(img,i)*np.cos(pi_u*(2*i+1)*two_N)
     res = np.sqrt(2/N)*c_1d(u)*z
     return res
@@ -165,10 +171,19 @@ def baseline(img, func_type):
 if __name__ == '__main__':
     img = open_image('lena.bmp')
     cv2.imwrite(output_dir+'gray_lena.bmp',img)
-    # print('Solving 1D DCT. First row then column, solving in multiprocess')
-    # res_1d = solve_1d_dct(img, Order.row)
+    print('Solving 1D DCT. First row then column, solving in multiprocess')
+    print('Row DCT')
+    dct_1d_row = solve_1d_dct(img, Order.row,Policy.dct_1d)
+    print('Column DCT')
+    dct_1d = solve_1d_dct(dct_1d_row, Order.col,Policy.dct_1d)
     # res_1d = solve_1d_dct(res_1d, Order.col)
-    # cv2.imwrite(output_dir+'1d_out.bmp', res_1d)
+    cv2.imwrite(output_dir+'1d_out_row.bmp', dct_1d_row)
+    cv2.imwrite(output_dir+'1d_out.bmp', dct_1d)
+    print('Column IDCT')
+    idct_1d_col = solve_1d_dct(dct_1d, Order.col, Policy.idct_1d)
+    print('Column DCT')
+    idct_1d = solve_1d_dct(idct_1d_col, Order.row, Policy.idct_1d)
+    cv2.imwrite(output_dir+'1d_idct.bmp', idct_1d)
     print('Solving 2D DCT. First row then column')
     N = img.shape[0]
     for sz in [8,N]:
