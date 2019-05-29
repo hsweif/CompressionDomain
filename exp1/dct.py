@@ -1,36 +1,9 @@
-import cv2
 import numpy as np
 from scipy import fftpack
-from enum import Enum, unique
 import multiprocessing as mp
-from tqdm import tqdm
+from exp1.util import *
 
-img_dir = '../resource/'
-output_dir = img_dir+'output/'
 CORE_NUM = 4
-
-@unique
-class Policy(Enum):
-    dct_1d = 1
-    dct_2d = 2
-    idct_2d = 3
-    idct_1d = 4
-
-@unique
-class Order(Enum):
-    row = 0
-    col = 1
-
-def open_image(img_name, gray=True):
-    img = cv2.imread(img_dir+img_name)
-    if gray == True:
-        img = color2Gray(img)
-    return img
-
-def color2Gray(img):
-    #TODO: 转换成灰度要自己写吗？
-    res = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    return res
 
 def solve_1d_dct(img, order, policy=Policy.idct_1d):
     shape = img.shape
@@ -152,6 +125,9 @@ def c_1d(u):
     return 1 if u != 0 else np.sqrt(2)/2
 
 def c_2d(u,v):
+    # if u != 0 and v != 0:
+    #     return 1
+    # return np.sqrt(2)/2
     if u != 0 and v != 0:
         return 1
     if u == 0 and v == 0:
@@ -170,21 +146,20 @@ def baseline(img, func_type):
 
 if __name__ == '__main__':
     img = open_image('lena.bmp')
-    cv2.imwrite(output_dir+'gray_lena.bmp',img)
-    print('Solving 1D DCT. First row then column, solving in multiprocess')
-    print('Row DCT')
-    dct_1d_row = solve_1d_dct(img, Order.row,Policy.dct_1d)
-    print('Column DCT')
-    dct_1d = solve_1d_dct(dct_1d_row, Order.col,Policy.dct_1d)
-    # res_1d = solve_1d_dct(res_1d, Order.col)
-    cv2.imwrite(output_dir+'1d_out_row.bmp', dct_1d_row)
-    cv2.imwrite(output_dir+'1d_out.bmp', dct_1d)
-    print('Column IDCT')
-    idct_1d_col = solve_1d_dct(dct_1d, Order.col, Policy.idct_1d)
-    print('Column DCT')
-    idct_1d = solve_1d_dct(idct_1d_col, Order.row, Policy.idct_1d)
-    cv2.imwrite(output_dir+'1d_idct.bmp', idct_1d)
-    print('Solving 2D DCT. First row then column')
+    # cv2.imwrite(output_dir+'gray_lena.bmp',img)
+    # print('Solving 1D DCT. First row then column, solving in multiprocess')
+    # print('Row DCT')
+    # dct_1d_row = solve_1d_dct(img, Order.row,Policy.dct_1d)
+    # print('Column DCT')
+    # dct_1d = solve_1d_dct(dct_1d_row, Order.col,Policy.dct_1d)
+    # cv2.imwrite(output_dir+'1d_out_row.bmp', dct_1d_row)
+    # cv2.imwrite(output_dir+'1d_out.bmp', dct_1d)
+    # print('Column IDCT')
+    # idct_1d_col = solve_1d_dct(dct_1d, Order.col, Policy.idct_1d)
+    # print('Column DCT')
+    # idct_1d = solve_1d_dct(idct_1d_col, Order.row, Policy.idct_1d)
+    # cv2.imwrite(output_dir+'1d_idct.bmp', idct_1d)
+    print('Solving 2D DCT.')
     N = img.shape[0]
     for sz in [8,N]:
         dct_2d = two_dim_transform(img,Policy.dct_2d,sz)
