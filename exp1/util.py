@@ -24,6 +24,9 @@ def open_image(img_name, gray=True):
         img = color2Gray(img)
     return img
 
+def save_image(img_name):
+    cv2.imwrite(output_dir+img_name)
+
 def color2Gray(img):
     #TODO: 转换成灰度要自己写吗？
     res = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
