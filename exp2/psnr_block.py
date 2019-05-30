@@ -90,9 +90,11 @@ if __name__ == '__main__':
     result.append(orig_img)
     partitions, n = image_partition(lena_img, block_size)
     dct_partitions = block_transform(partitions, util.Policy.dct_2d, block_size, n)
+    cof_list = []
 
     for i in range(1, 9):
         a_cof = i/5
+        cof_list.append(a_cof)
         res_img, psnr_avg = solve_exp2(partitions, dct_partitions, block_size, n, a_cof)
         print(f'Round {i} quantization, cof = {a_cof}, psnr = {psnr_avg}')
         psnr_list.append(psnr_avg)
@@ -107,5 +109,11 @@ if __name__ == '__main__':
             plt.title(f'a={(i-1)/5}')
         plt.imshow(result[i-1], cmap=plt.cm.gray)
         plt.axis('off')
+    plt.show()
 
+    plt.figure()
+    plt.title('PSNR - a relationship')
+    plt.xlabel('a')
+    plt.ylabel('PSNR')
+    plt.plot(cof_list, psnr_list)
     plt.show()
