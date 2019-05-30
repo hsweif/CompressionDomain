@@ -1,26 +1,25 @@
 from exp1 import dct, psnr, util
 import numpy as np
+import cv2
 
 def image_partition(img, block_sz=8):
     # FIXME: Does not consider padding problem yet.
-    partitions = []
     shape = img.shape
     h, w = shape[0], shape[1]
     assert(h == w)
     n = int(h/block_sz)
     assert(n*block_sz == h)
+    partitions = np.ndarray((n,n,block_sz,block_sz))
     for ni in range(0, n):
         for nj in range(0, n):
-            sub_img = img[ni*block_sz:(ni+1)*block_sz, nj*block_sz:(nj+1)*block_sz]
-            partitions.append(sub_img)
-    return partitions
+            partitions[ni,nj] = img[ni*block_sz:(ni+1)*block_sz, nj*block_sz:(nj+1)*block_sz]
+    return partitions, n
 
-def block_transform(partitions, policy, block_sz,):
-    block_res = []
-    for pt_img in partitions:
-        pt_res = dct.two_dim_transform(pt_img, policy, block_sz)
-        pt_res = quantization(pt_res, block_sz)
-        block_res.append(pt_res)
+def block_transform(partitions, policy, block_sz,n):
+    block_res = np.ndarray(partitions.shape)
+    for ni in range(0, n):
+        for nj in range(0, n):
+            block_res[ni,nj] = dct.two_dim_transform(partitions[ni,nj], policy, block_sz)
     return block_res
 
 def jpeg_qmatrix(block_sz=8):
@@ -41,17 +40,37 @@ def jpeg_qmatrix(block_sz=8):
     q_matrix[7,:] = [72, 92, 95, 98, 112,100,103,99]
     return q_matrix
 
-
-def quantization(img, block_sz):
+def quantization(img, block_sz, policy):
     assert(block_sz == 8)
     q_matrix = jpeg_qmatrix(block_sz)
-    med_res = img/q_matrix
-    res = np.rint(med_res)
+    if policy == util.Policy.quan:
+        med_res = img/q_matrix
+        res = np.rint(med_res)
+    else:
+        res = img*q_matrix
+    return res
+
+def block_quant(partitions, policy, block_sz, n):
+    quan_res = np.ndarray((partitions.shape))
+    for ni in range(0, n):
+        for nj in range(0, n):
+            quan_res[ni,nj] = quantization(partitions[ni,nj],block_sz,policy)
+    return quan_res
+
+def compose(partitions, block_sz, n):
+    res = np.zeros((n*block_sz, n*block_sz))
+    for ni in range(0, n):
+        for nj in range(0, n):
+            res[ni*block_sz:(ni+1)*block_sz, nj*block_sz:(nj+1)*block_sz] = partitions[ni,nj]
     return res
 
 if __name__ == '__main__':
     lena_img = util.open_image('lena.bmp')
     block_size = 8
-    partitions = image_partition(lena_img, block_size)
-    block_dct = block_transform(partitions, util.Policy.dct_2d, block_size)
-    block_idct = block_transform(block_dct, util.Policy.idct_2d, block_size)
+    partitions, n = image_partition(lena_img, block_size)
+    block_dct = block_transform(partitions, util.Policy.dct_2d, block_size, n)
+    block_quan = block_quant(block_dct, util.Policy.quan, block_size, n)
+    block_dequan = block_quant(block_quan, util.Policy.dequan, block_size, n)
+    block_idct = block_transform(block_dequan, util.Policy.idct_2d, block_size, n)
+    res_img = compose(block_idct, block_size, n)
+    cv2.imwrite(util.output_dir+'quan_idct.bmp', res_img)

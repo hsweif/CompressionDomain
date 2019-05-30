@@ -62,7 +62,7 @@ def two_dim_transform(img, policy, block_sz=8):
     n = int(h/block_sz)
     assert(n*block_sz == h)
     for ni in range(0, n):
-        print(f'Iter: {ni}')
+        # print(f'Iter: {ni}')
         for nj in range(0, n):
             base_img = img[ni*block_sz:(ni+1)*block_sz, nj*block_sz:(nj+1)*block_sz]
             if(policy == Policy.dct_2d):

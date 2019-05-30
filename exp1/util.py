@@ -10,6 +10,8 @@ class Policy(Enum):
     dct_2d = 2
     idct_2d = 3
     idct_1d = 4
+    quan = 5
+    dequan = 6
 
 @unique
 class Order(Enum):
