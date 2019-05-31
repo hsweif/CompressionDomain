@@ -105,6 +105,3 @@ venv.bak/
 
 # PyCharm settings
 .idea/
-
-# Image directory
-resource/

@@ -14,6 +14,11 @@ class Policy(Enum):
     dequan = 6
 
 @unique
+class Domain(Enum):
+    pixel = 1
+    freq = 2
+
+@unique
 class Order(Enum):
     row = 0
     col = 1
